@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./music-app/frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./music-app/frontend:/app
+    command: npm run dev
+
+  backend:
+    build:
+      context: ./music-app/backend
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./music-app/backend:/app
+    command: node server.js
