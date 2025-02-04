@@ -1,6 +1,6 @@
 # Music App
 
-This is a web application that allows playing sounds by pressing keyboard keys and dynamically displays the played notes on a music sheet.
+This is a web application that allows playing sounds by pressing keyboard keys and dynamically displays the played notes on a music sheet according to the treble clef with C at the bottom.
 
 ## Project Structure
 
@@ -29,7 +29,7 @@ music-app/
 
 ## Frontend
 
-The frontend is built using React, Tone.js, and VexFlow. It handles the user interface, keyboard input, sound generation, and dynamic music sheet display.
+The frontend is built using React, Tone.js, and VexFlow. It handles the user interface, keyboard input, sound generation, and dynamic music sheet display using VexFlow.
 
 ## Backend
 
