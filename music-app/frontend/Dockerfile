@@ -1,17 +1,17 @@
 # Use a base image for Node.js
-FROM node:14
+FROM node:16-alpine
 
 # Set the working directory
 WORKDIR /app
 
 # Copy the frontend code into the Docker image
-COPY . .
+COPY package*.json ./
 
 # Install dependencies
 RUN npm install
 
-# Build the frontend using Vite
-RUN npm run build
+# Copy the rest of the frontend code into the Docker image
+COPY . .
 
 # Expose the necessary port for the frontend service
 EXPOSE 3000
