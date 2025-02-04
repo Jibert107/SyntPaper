@@ -13,7 +13,7 @@ function App() {
 
   // Mapping des touches du clavier aux notes
   const keyMap = {
-    'a': 'C4',
+    'q': 'C4',
     's': 'D4',
     'd': 'E4',
     'f': 'F4',
@@ -48,7 +48,7 @@ function App() {
       
       {/* Instructions */}
       <div style={{ marginBottom: '20px' }}>
-        <p>Utilisez les touches A-S-D-F-G-H-J-K pour jouer des notes</p>
+        <p>Utilisez les touches Q-S-D-F-G-H-J-K pour jouer des notes</p>
       </div>
 
       {/* Piano */}
