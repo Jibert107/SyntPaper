@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import * as Tone from 'tone';
 import Vex from 'vexflow';
 
@@ -6,6 +6,10 @@ function App() {
   const [synth, setSynth] = useState(null);
   const [notes, setNotes] = useState([]);
   const [instrument, setInstrument] = useState('synth');
+  const [staveNotes, setStaveNotes] = useState([]);
+  const rendererRef = useRef(null);
+  const contextRef = useRef(null);
+  const staveRef = useRef(null);
 
   // Définition des différents instruments
   const instruments = {
@@ -31,29 +35,106 @@ function App() {
   };
 
   useEffect(() => {
-    // Créer et connecter le nouvel instrument
     const newSynth = instruments[instrument]().toDestination();
     setSynth(newSynth);
-
-    // Nettoyer l'ancien synthétiseur
     return () => {
-      if (synth) {
-        synth.dispose();
-      }
+      if (synth) synth.dispose();
     };
-  }, [instrument]); // Recréer le synthétiseur quand l'instrument change
+  }, [instrument]);
 
   useEffect(() => {
+    // Initialisation de la partition
     const VF = Vex.Flow;
     const div = document.getElementById("music-sheet");
-    const renderer = new VF.Renderer(div, VF.Renderer.Backends.SVG);
-    renderer.resize(500, 200);
-    const context = renderer.getContext();
-    const stave = new VF.Stave(10, 40, 400);
-    stave.addClef("treble").setContext(context).draw();
+    div.innerHTML = ''; // Nettoyer le contenu précédent
+
+    // Calculer la largeur en fonction de la fenêtre
+    const width = Math.min(window.innerWidth - 60, 1200);
+    
+    rendererRef.current = new VF.Renderer(div, VF.Renderer.Backends.SVG);
+    rendererRef.current.resize(width, 150);
+    
+    contextRef.current = rendererRef.current.getContext();
+    contextRef.current.setFont("Arial", 10);
+    
+    staveRef.current = new VF.Stave(10, 40, width - 20);
+    staveRef.current
+      .addClef("treble")
+      .addTimeSignature("4/4")
+      .setContext(contextRef.current)
+      .draw();
+
+    // Gestionnaire de redimensionnement
+    const handleResize = () => {
+      const newWidth = Math.min(window.innerWidth - 60, 1200);
+      rendererRef.current.resize(newWidth, 150);
+      div.innerHTML = '';
+      staveRef.current = new VF.Stave(10, 40, newWidth - 20);
+      staveRef.current
+        .addClef("treble")
+        .addTimeSignature("4/4")
+        .setContext(contextRef.current)
+        .draw();
+      drawAllNotes();
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Mapping des touches du clavier aux notes
+  const drawAllNotes = () => {
+    if (!contextRef.current || !staveRef.current || staveNotes.length === 0) return;
+
+    const VF = Vex.Flow;
+    contextRef.current.clear();
+    staveRef.current.setContext(contextRef.current).draw();
+
+    // Créer une voix avec le bon nombre de beats
+    const voice = new VF.Voice({
+      num_beats: staveNotes.length,
+      beat_value: 4,
+      resolution: VF.RESOLUTION
+    });
+
+    // Ajouter les notes à la voix
+    voice.addTickables(staveNotes);
+
+    // Créer et appliquer le formateur
+    const formatter = new VF.Formatter();
+    formatter
+      .joinVoices([voice])
+      .format([voice], staveRef.current.getWidth() - 100);
+
+    // Dessiner la voix
+    voice.draw(contextRef.current, staveRef.current);
+  };
+
+  useEffect(() => {
+    drawAllNotes();
+  }, [staveNotes]);
+
+  const addNoteToStave = (noteName) => {
+    const VF = Vex.Flow;
+    // Convertir le format de note pour VexFlow (ex: C4 -> c/4)
+    const [pitch, octave] = noteName.split('');
+    const vexFlowNote = `${pitch.toLowerCase()}/${octave}`;
+    
+    const newNote = new VF.StaveNote({
+      clef: "treble",
+      keys: [vexFlowNote],
+      duration: "q"
+    });
+
+    setStaveNotes(prev => {
+      const newNotes = [...prev, newNote];
+      // Garder seulement les 8 dernières notes pour une meilleure lisibilité
+      if (newNotes.length > 8) {
+        return newNotes.slice(-8);
+      }
+      return newNotes;
+    });
+  };
+
   const keyMap = {
     'q': 'C4',
     's': 'D4',
@@ -65,37 +146,12 @@ function App() {
     'k': 'C5'
   };
 
-  const drawNotes = (note) => {
-    const VF = Vex.Flow;
-    const div = document.getElementById("music-sheet");
-    const renderer = new VF.Renderer(div, VF.Renderer.Backends.SVG);
-    renderer.resize(500, 200);
-    const context = renderer.getContext();
-    const stave = new VF.Stave(10, 40, 400);
-    stave.addClef("treble").setContext(context).draw();
-
-    const notes = [
-      new VF.StaveNote({
-        clef: "treble",
-        keys: [note],
-        duration: "q"
-      })
-    ];
-
-    const voice = new VF.Voice({ num_beats: 1, beat_value: 4 });
-    voice.addTickables(notes);
-
-    const formatter = new VF.Formatter().joinVoices([voice]).format([voice], 400);
-    voice.draw(context, stave);
-  };
-
-  // Gérer l'appui sur une touche
   const handleKeyDown = (event) => {
     const note = keyMap[event.key.toLowerCase()];
     if (note && synth) {
       synth.triggerAttackRelease(note, '8n');
       setNotes(prev => [...prev, `${instrumentNames[instrument]}: ${note}`]);
-      drawNotes(note);
+      addNoteToStave(note);
     }
   };
 
@@ -129,9 +185,7 @@ function App() {
           style={selectStyle}
         >
           {Object.entries(instrumentNames).map(([key, name]) => (
-            <option key={key} value={key}>
-              {name}
-            </option>
+            <option key={key} value={key}>{name}</option>
           ))}
         </select>
       </div>
@@ -140,6 +194,16 @@ function App() {
       <div style={{ marginBottom: '20px' }}>
         <p>Utilisez les touches Q-S-D-F-G-H-J-K pour jouer des notes</p>
       </div>
+
+      {/* Partition de musique */}
+      <div id="music-sheet" style={{ 
+        marginTop: '20px',
+        marginBottom: '20px',
+        padding: '10px',
+        backgroundColor: '#fff',
+        borderRadius: '5px',
+        boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
+      }}></div>
 
       {/* Piano */}
       <div 
@@ -165,7 +229,7 @@ function App() {
               if (synth) {
                 synth.triggerAttackRelease(note, '8n');
                 setNotes(prev => [...prev, `${instrumentNames[instrument]}: ${note}`]);
-                drawNotes(note);
+                addNoteToStave(note);
               }
             }}
           >
@@ -178,7 +242,7 @@ function App() {
         ))}
       </div>
 
-      {/* Affichage des notes jouées */}
+      {/* Historique des notes */}
       <div style={{ 
         marginTop: '20px',
         padding: '10px',
@@ -208,9 +272,6 @@ function App() {
           ))}
         </div>
       </div>
-
-      {/* Partition de musique */}
-      <div id="music-sheet" style={{ marginTop: '20px' }}></div>
     </div>
   );
 }
