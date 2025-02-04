@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import * as Tone from 'tone';
+import Vex from 'vexflow';
 
 function App() {
   const [synth, setSynth] = useState(null);
@@ -42,6 +43,16 @@ function App() {
     };
   }, [instrument]); // Recréer le synthétiseur quand l'instrument change
 
+  useEffect(() => {
+    const VF = Vex.Flow;
+    const div = document.getElementById("music-sheet");
+    const renderer = new VF.Renderer(div, VF.Renderer.Backends.SVG);
+    renderer.resize(500, 200);
+    const context = renderer.getContext();
+    const stave = new VF.Stave(10, 40, 400);
+    stave.addClef("treble").setContext(context).draw();
+  }, []);
+
   // Mapping des touches du clavier aux notes
   const keyMap = {
     'q': 'C4',
@@ -54,12 +65,37 @@ function App() {
     'k': 'C5'
   };
 
+  const drawNotes = (note) => {
+    const VF = Vex.Flow;
+    const div = document.getElementById("music-sheet");
+    const renderer = new VF.Renderer(div, VF.Renderer.Backends.SVG);
+    renderer.resize(500, 200);
+    const context = renderer.getContext();
+    const stave = new VF.Stave(10, 40, 400);
+    stave.addClef("treble").setContext(context).draw();
+
+    const notes = [
+      new VF.StaveNote({
+        clef: "treble",
+        keys: [note],
+        duration: "q"
+      })
+    ];
+
+    const voice = new VF.Voice({ num_beats: 1, beat_value: 4 });
+    voice.addTickables(notes);
+
+    const formatter = new VF.Formatter().joinVoices([voice]).format([voice], 400);
+    voice.draw(context, stave);
+  };
+
   // Gérer l'appui sur une touche
   const handleKeyDown = (event) => {
     const note = keyMap[event.key.toLowerCase()];
     if (note && synth) {
       synth.triggerAttackRelease(note, '8n');
       setNotes(prev => [...prev, `${instrumentNames[instrument]}: ${note}`]);
+      drawNotes(note);
     }
   };
 
@@ -129,6 +165,7 @@ function App() {
               if (synth) {
                 synth.triggerAttackRelease(note, '8n');
                 setNotes(prev => [...prev, `${instrumentNames[instrument]}: ${note}`]);
+                drawNotes(note);
               }
             }}
           >
@@ -171,8 +208,11 @@ function App() {
           ))}
         </div>
       </div>
+
+      {/* Partition de musique */}
+      <div id="music-sheet" style={{ marginTop: '20px' }}></div>
     </div>
   );
 }
 
-export default App; 
+export default App;
